@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Food logger Mobile</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="phone-app">
+      <header class="app-header">
+        <div>
+          <p class="eyebrow">Food logger</p>
+          <h1 id="screenTitle">Home items</h1>
+        </div>
+        <button id="quickScanBtn" class="icon-btn" type="button" aria-label="Open scanner">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4 6.8 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-2.8L16 4H8Zm4 14a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" /></svg>
+        </button>
+      </header>
+
+      <section id="home" class="screen is-active">
+        <section class="hero">
+          <div class="hero-topline">
+            <p>Crave smarter. Waste less.</p>
+            <span><strong id="streakCount">3</strong> day save streak</span>
+          </div>
+          <h2>Tonight's best meal is already hiding at home.</h2>
+          <div class="hero-actions">
+            <button id="cookNowBtn" class="primary" type="button">Cook a craving</button>
+            <button id="scanNowBtn" class="secondary" type="button">Scan receipt</button>
+          </div>
+        </section>
+
+        <section class="priority-card">
+          <p class="eyebrow">Tonight's save move</p>
+          <h2 id="saveMoveTitle">Rescue spinach first</h2>
+          <p id="saveMoveText">Use your closest-to-expiry food before buying more.</p>
+          <button id="saveMoveBtn" class="primary full" type="button">Turn it into dinner</button>
+        </section>
+
+        <section class="stats">
+          <article><strong id="homeCount">0</strong><span>ready</span></article>
+          <article><strong id="soonCount">0</strong><span>save soon</span></article>
+          <article><strong id="gapCount">0</strong><span>gaps</span></article>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <h2>Home items</h2>
+            <button id="addSampleBtn" class="tiny" type="button">+ sample</button>
+          </div>
+          <form id="mobileAddForm" class="stack-form">
+            <input id="mobileItemName" placeholder="Food item" required />
+            <div class="form-row">
+              <input id="mobileItemQty" placeholder="Qty" required />
+              <input id="mobileItemDate" type="date" required />
+            </div>
+            <button class="primary" type="submit">Save item</button>
+          </form>
+          <div id="homeItems" class="list"></div>
+        </section>
+
+        <section class="card">
+          <h2>Only buy next</h2>
+          <div id="buyList" class="list"></div>
+        </section>
+      </section>
+
+      <section id="scan" class="screen">
+        <section class="card scanner-card">
+          <h2>Camera scanner</h2>
+          <div class="camera-frame">
+            <video id="cameraPreview" autoplay playsinline muted hidden></video>
+            <canvas id="receiptCanvas" hidden></canvas>
+            <div id="cameraPlaceholder" class="camera-placeholder">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4 6.8 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-2.8L16 4H8Zm4 14a5 5 0 1 1 0-10 5 5 0 0 1 0 10Z" /></svg>
+              <span>Open camera or add receipt photo</span>
+            </div>
+          </div>
+          <div class="button-grid">
+            <button id="openCameraBtn" class="secondary" type="button">Open camera</button>
+            <button id="captureBtn" class="primary" type="button" disabled>Capture</button>
+            <button id="closeCameraBtn" class="ghost" type="button" disabled>Close</button>
+          </div>
+          <label class="file-button">
+            <input id="receiptImage" type="file" accept="image/*" capture="environment" />
+            Add receipt photo
+          </label>
+        </section>
+
+        <section class="card">
+          <h2>Receipt text</h2>
+          <textarea id="receiptText" rows="7">Tomatoes 4
+Spinach 1 bag
+Yogurt 2
+Rice 5 lb</textarea>
+          <button id="parseReceiptBtn" class="primary full" type="button">Review groceries</button>
+        </section>
+
+        <section class="card">
+          <h2>Quick check</h2>
+          <div id="reviewList" class="list"></div>
+        </section>
+      </section>
+
+      <section id="crave" class="screen">
+        <section class="card">
+          <div class="section-head">
+            <h2>Pick cravings</h2>
+            <button id="refreshIdeasBtn" class="tiny" type="button">remix</button>
+          </div>
+          <div id="ideaGrid" class="idea-grid"></div>
+        </section>
+        <section class="card">
+          <h2>Craving basket</h2>
+          <div id="basketList" class="list"></div>
+          <button id="makeRecipeBtn" class="primary full" type="button">Generate recipe</button>
+        </section>
+      </section>
+
+      <section id="cook" class="screen">
+        <section class="card">
+          <h2>Flavor mood</h2>
+          <div id="cultureTabs" class="chips">
+            <button class="chip is-selected" data-culture="Indian">Indian</button>
+            <button class="chip" data-culture="Western">Western</button>
+            <button class="chip" data-culture="Mexican">Mexican</button>
+            <button class="chip" data-culture="Italian">Italian</button>
+            <button class="chip" data-culture="Japanese">Japanese</button>
+            <button class="chip" data-culture="Mediterranean">Mediterranean</button>
+          </div>
+        </section>
+        <section class="recipe-card">
+          <p class="eyebrow">Fresh idea</p>
+          <h2 id="recipeName">Garden masala bowl</h2>
+          <p id="recipeIntro">Choose cravings to generate a cozy recipe.</p>
+          <ol id="recipeSteps"></ol>
+          <div class="recipe-actions">
+            <button id="anotherRecipeBtn" class="primary full" type="button">Another idea</button>
+            <button id="clearBasketBtn" class="ghost full" type="button">Clear cravings</button>
+          </div>
+        </section>
+      </section>
+
+      <nav class="bottom-nav" aria-label="Mobile navigation">
+        <button class="nav-item is-active" data-screen="home" type="button">Home</button>
+        <button class="nav-item" data-screen="scan" type="button">Scan</button>
+        <button class="nav-item" data-screen="crave" type="button">Crave</button>
+        <button class="nav-item" data-screen="cook" type="button">Cook</button>
+      </nav>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
