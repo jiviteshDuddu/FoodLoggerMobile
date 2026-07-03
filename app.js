@@ -199,25 +199,8 @@ function addItem(name, qty, expiry, culture) {
   renderAll();
   showToast(`${name} saved at home.`);
 }
-      // Ensure a minimum resolution for OCR by scaling canvas to ~1500px width
-      const minWidth = 1500;
-      let ocrCanvas = canvas;
-      if (canvas.width < minWidth) {
-        ocrCanvas = document.createElement('canvas');
-        const scale = minWidth / canvas.width;
-        ocrCanvas.width = Math.round(canvas.width * scale);
-        ocrCanvas.height = Math.round(canvas.height * scale);
-        const octx = ocrCanvas.getContext('2d');
-        octx.imageSmoothingEnabled = true;
-        octx.drawImage(canvas, 0, 0, ocrCanvas.width, ocrCanvas.height);
-      }
-      // Tesseract.js expects a URL/dataURI or canvas; pass canvas directly
-      const result = await Tesseract.recognize(ocrCanvas, 'eng', {
-        logger: (m) => { /* optional logging */ },
-        // tuning parameters
-        tessedit_pageseg_mode: 6, // Assume a uniform block of text
-        tessedit_char_whitelist: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.,:$%\-()/'
-      });
+
+function shuffle(items) {
   return items.slice().sort(() => Math.random() - 0.5);
 }
 
@@ -347,10 +330,6 @@ function setCameraState(open) {
   document.querySelector("#closeCameraBtn").disabled = !open;
   document.querySelector("#cameraPreview").hidden = !open;
   document.querySelector("#cameraPlaceholder").hidden = open;
-  const ocrBtn = document.querySelector("#ocrBtn");
-  if (ocrBtn) ocrBtn.disabled = !open;
-  const torchBtn = document.querySelector("#torchBtn");
-  if (torchBtn) torchBtn.disabled = !open;
 }
 
 async function openCamera() {
@@ -365,7 +344,6 @@ async function openCamera() {
     setCameraState(true);
     await preview.play();
     showToast("Camera opened.");
-    ensureOverlay();
   } catch {
     showToast("Camera permission was blocked.");
   }
@@ -391,197 +369,6 @@ function captureReceipt() {
   canvas.height = preview.videoHeight || 720;
   canvas.getContext("2d").drawImage(preview, 0, 0, canvas.width, canvas.height);
   showToast("Receipt captured. Review the text before saving.");
-  // Run preprocessing + OCR automatically after capture
-  showOverlayForAdjustment();
-}
-
-document.querySelector("#ocrBtn")?.addEventListener("click", () => preprocessAndOcr());
-document.querySelector("#torchBtn")?.addEventListener("click", () => toggleTorch());
-document.querySelector("#applyAdjustBtn")?.addEventListener("click", () => applyAdjustmentsAndOcr());
-document.querySelector("#testOcrBtn")?.addEventListener("click", () => testOcrSample());
-
-async function preprocessAndOcr() {
-  const canvas = document.querySelector("#receiptCanvas");
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  // Ensure we have image data
-  let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imageData.data;
-  // convert to grayscale
-  const gray = new Uint8ClampedArray(canvas.width * canvas.height);
-  for (let i = 0, j = 0; i < data.length; i += 4, j++) {
-    const r = data[i], g = data[i + 1], b = data[i + 2];
-    // luminance
-    gray[j] = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
-  }
-
-  // Apply simple local contrast (tile-based equalization)
-  const tileSize = 64;
-  for (let ty = 0; ty < canvas.height; ty += tileSize) {
-    for (let tx = 0; tx < canvas.width; tx += tileSize) {
-      const hist = new Uint32Array(256);
-      const w = Math.min(tileSize, canvas.width - tx);
-      const h = Math.min(tileSize, canvas.height - ty);
-      for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-          hist[gray[(ty + y) * canvas.width + (tx + x)]]++;
-        }
-      }
-      let cdfMin = 0;
-      let found = false;
-      for (let k = 0; k < 256; k++) {
-        if (hist[k] && !found) { cdfMin = hist[k]; found = true; }
-      }
-      let cdf = 0;
-      const npix = w * h;
-      const lut = new Uint8ClampedArray(256);
-      for (let k = 0; k < 256; k++) {
-        cdf += hist[k];
-        lut[k] = Math.round((cdf - cdfMin) / (npix - cdfMin || 1) * 255);
-      }
-      for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-          gray[(ty + y) * canvas.width + (tx + x)] = lut[gray[(ty + y) * canvas.width + (tx + x)]];
-        }
-      }
-    }
-  }
-
-  // Otsu threshold
-  const hist = new Uint32Array(256);
-  for (let i = 0; i < gray.length; i++) hist[gray[i]]++;
-  const total = gray.length;
-  let sum = 0;
-  for (let t = 0; t < 256; t++) sum += t * hist[t];
-  let sumB = 0;
-  let wB = 0;
-  let wF = 0;
-  let varMax = 0;
-  let threshold = 0;
-  for (let t = 0; t < 256; t++) {
-    wB += hist[t];
-    if (wB === 0) continue;
-    wF = total - wB;
-    if (wF === 0) break;
-    sumB += t * hist[t];
-    const mB = sumB / wB;
-    const mF = (sum - sumB) / wF;
-    const varBetween = wB * wF * (mB - mF) * (mB - mF);
-    if (varBetween > varMax) {
-      varMax = varBetween;
-      threshold = t;
-    }
-  }
-
-  // apply threshold and write back to imageData
-  for (let i = 0, j = 0; i < data.length; i += 4, j++) {
-    const v = gray[j] >= threshold ? 255 : 0;
-    data[i] = data[i + 1] = data[i + 2] = v;
-    data[i + 3] = 255;
-  }
-  ctx.putImageData(imageData, 0, 0);
-
-  showToast("Running OCR...");
-  try {
-    // Tesseract.js expects a URL/dataURI or canvas; pass canvas directly
-    // Try a more tuned recognize call; keep it simple to remain compatible
-    const result = await Tesseract.recognize(canvas, 'eng', { logger: (m) => { /* optional logging */ } });
-    const text = result?.data?.text || '';
-    document.querySelector('#receiptText').value = text.trim() || document.querySelector('#receiptText').value;
-    showToast('OCR complete. Review/edit text before saving.');
-  } catch (e) {
-    showToast('OCR failed. Try better lighting or a clearer photo.');
-  }
-}
-
-function ensureOverlay() {
-  const overlay = document.querySelector('#cameraOverlay');
-  const preview = document.querySelector('#cameraPreview');
-  if (!overlay || !preview) return;
-  overlay.classList.remove('hidden');
-  // match overlay size to video element
-  const rect = preview.getBoundingClientRect();
-  overlay.style.width = `${rect.width}px`;
-  overlay.style.height = `${rect.height}px`;
-}
-
-function showOverlayForAdjustment() {
-  const overlay = document.querySelector('#cameraOverlay');
-  const canvas = document.querySelector('#receiptCanvas');
-  if (!overlay || !canvas) return;
-  overlay.classList.remove('hidden');
-  const crop = document.querySelector('#cropRect');
-  crop.style.display = 'block';
-  crop.style.left = '10%';
-  crop.style.top = '10%';
-  crop.style.width = '80%';
-  crop.style.height = '80%';
-  // show rotate slider
-  document.querySelector('#rotateSlider').value = '0';
-}
-
-function toggleTorch() {
-  if (!cameraStream) return showToast('Camera not open');
-  const track = cameraStream.getVideoTracks()[0];
-  const capabilities = track.getCapabilities && track.getCapabilities();
-  if (!capabilities || !capabilities.torch) return showToast('Torch not supported on this device');
-  const settings = track.getSettings();
-  const currentlyOn = settings.torch || false;
-  track.applyConstraints({ advanced: [{ torch: !currentlyOn }] }).then(() => {
-    showToast(`Torch ${!currentlyOn ? 'on' : 'off'}`);
-  }).catch(() => showToast('Unable to toggle torch'));
-}
-
-function applyAdjustmentsAndOcr() {
-  const canvas = document.querySelector('#receiptCanvas');
-  const preview = document.querySelector('#cameraPreview');
-  if (!canvas || !preview) return;
-  const ctx = canvas.getContext('2d');
-  // get crop rect in percentage and rotation
-  const crop = document.querySelector('#cropRect');
-  const previewRect = preview.getBoundingClientRect();
-  const cRect = crop.getBoundingClientRect();
-  const sx = Math.max(0, Math.floor((cRect.left - previewRect.left) / previewRect.width * canvas.width));
-  const sy = Math.max(0, Math.floor((cRect.top - previewRect.top) / previewRect.height * canvas.height));
-  const sw = Math.max(1, Math.floor(cRect.width / previewRect.width * canvas.width));
-  const sh = Math.max(1, Math.floor(cRect.height / previewRect.height * canvas.height));
-  const angle = parseFloat(document.querySelector('#rotateSlider').value || '0') * Math.PI / 180;
-  // create temp canvas to apply crop+rotate
-  const tmp = document.createElement('canvas');
-  tmp.width = sw;
-  tmp.height = sh;
-  const tctx = tmp.getContext('2d');
-  tctx.save();
-  tctx.translate(sw / 2, sh / 2);
-  tctx.rotate(angle);
-  tctx.drawImage(canvas, sx, sy, sw, sh, -sw / 2, -sh / 2, sw, sh);
-  tctx.restore();
-  // copy back to main canvas
-  canvas.width = tmp.width;
-  canvas.height = tmp.height;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(tmp, 0, 0);
-  document.querySelector('#cameraOverlay').classList.add('hidden');
-  preprocessAndOcr();
-}
-
-async function testOcrSample() {
-  // load sample image from workspace if present
-  try {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.src = 'receipt-sample.jpg';
-    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
-    const canvas = document.querySelector('#receiptCanvas');
-    canvas.width = img.width;
-    canvas.height = img.height;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0);
-    showToast('Sample loaded. Running OCR...');
-    await preprocessAndOcr();
-  } catch (e) {
-    showToast('Sample not found. Put receipt-sample.jpg in the workspace root.');
-  }
 }
 
 function renderAll() {

@@ -72,9 +72,6 @@
           <div class="camera-frame">
             <video id="cameraPreview" autoplay playsinline muted hidden></video>
             <canvas id="receiptCanvas" hidden></canvas>
-            <div id="cameraOverlay" class="camera-overlay hidden">
-              <div class="crop-rect" id="cropRect"></div>
-            </div>
             <div id="cameraPlaceholder" class="camera-placeholder">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4 6.8 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-2.8L16 4H8Zm4 14a5 5 0 1 1 0-10 5 5 0 0 1 0 10Z" /></svg>
               <span>Open camera or add receipt photo</span>
@@ -83,14 +80,7 @@
           <div class="button-grid">
             <button id="openCameraBtn" class="secondary" type="button">Open camera</button>
             <button id="captureBtn" class="primary" type="button" disabled>Capture</button>
-            <button id="ocrBtn" class="secondary" type="button" disabled>OCR</button>
-            <button id="torchBtn" class="secondary" type="button" disabled>Toggle Flash</button>
             <button id="closeCameraBtn" class="ghost" type="button" disabled>Close</button>
-          </div>
-          <div class="adjust-controls">
-            <label>Rotate: <input id="rotateSlider" type="range" min="-10" max="10" value="0" step="0.5" /></label>
-            <button id="applyAdjustBtn" class="tiny" type="button">Apply adjustments</button>
-            <button id="testOcrBtn" class="tiny" type="button">Test OCR (sample)</button>
           </div>
           <label class="file-button">
             <input id="receiptImage" type="file" accept="image/*" capture="environment" />
@@ -161,7 +151,6 @@ Rice 5 lb</textarea>
     </main>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
